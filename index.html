@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interactivo Liceo Bicentenario</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 28px;
+            color: #333;
+            text-align: center;
+            margin: 20px 0 10px;
+        }
+
+        h2 {
+            font-size: 22px;
+            color: #444;
+            margin: 20px 0 10px;
+            text-align: center;
+        }
+
+        #polygonCount {
+            font-size: 18px;
+            font-weight: bold;
+            color: #555;
+            margin: 10px 0;
+        }
+
+        #map {
+            height: 80vh;
+            width: 90%;
+            max-width: 1200px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        #logo-left {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 100px;
+            height: auto;
+            z-index: 1000;
+        }
+
+        #logo-right {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 100px;
+            height: auto;
+            z-index: 1000;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: black;
+        }
+
+        /* Estilos de la tabla */
+        table {
+            width: 80%;
+            max-width: 800px;
+            margin: 20px auto;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        th {
+            background-color: #f4f4f4;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        td {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Imágenes de los extremos -->
+    <img id="logo-left" src="images/liceo.png" alt="Logo Izquierdo">
+    <img id="logo-right" src="images/geomatica.png" alt="Logo Derecho">
+
+    <h1>Mapa Interactivo Liceo Bicentenario</h1>
+    <p id="polygonCount">Total de polígonos: 0</p> <!-- Contador de polígonos -->
+    <div id="map"></div>
+
+    <!-- Modal para editar atributos del polígono -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>Editar Atributos del Polígono</h2>
+            <table id="editTable"></table>
+            <button onclick="saveChanges()">Guardar Cambios</button>
+        </div>
+    </div>
+
+    <h2>Visualización de Dimensiones</h2>
+    <div style="width: 80%; max-width: 800px; margin: 20px auto;">
+        <canvas id="dimensionChart"></canvas>
+    </div>
+
+    <h2>Tabla de Asociación</h2>
+    <table id="polygonTable">
+        <thead>
+            <tr>
+                <th>Número de Polígono</th>
+                <th>ID del Polígono</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+<h3>Descripción de los Campos</h3>
+<table style="border-collapse: collapse; width: 100%; text-align: left; border: 1px solid #ddd;">
+    <thead>
+        <tr style="background-color: #f4f4f4;">
+            <th style="border: 1px solid #ddd; padding: 8px;">Campo</th>
+            <th style="border: 1px solid #ddd; padding: 8px;">Descripción</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">id</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">Identificador único del polígono</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">nombre</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">Nombre del observador (quien capturó los datos)</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">elemento</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">Tipo de elemento que representa (e.g., vegetación, máquina de ejercicio, etc.)</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">descrip</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">Descripción breve del elemento</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">dimension</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">Área en metros cuadrados (idealmente) o alguna medida de dimensión del tipo “50x60 cms”</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">detalle</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">Detalles adicionales sobre el elemento (Clasificacion del elemento)</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">ubicacion</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">Ubicación o sector al que pertenece el elemento</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">estado</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">Estado actual del elemento (e.g., activo, en revisión, desactivado)</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">fecha_reg</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">Fecha en que se registró el elemento</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">restricc</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">Restricciones asociadas al elemento (Solo si existen, en caso contrario "No aplica")</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">comentario</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">Comentarios adicionales en caso de necesitarse</td>
+        </tr>
+        <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">estado_obs</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">Observacion finalizada/en revisión</td>
+        </tr>
+    </tbody>
+</table>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="map.js"></script>
+</body>
+</html>
